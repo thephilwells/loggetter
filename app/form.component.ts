@@ -11,7 +11,7 @@ import { EventService }      from './event.service';
 })
 export class FormComponent implements OnInit {
     query: Query;
-    events: Event[];
+    events: Event[] = [];
 
     constructor(
         private eventService: EventService,
@@ -19,13 +19,8 @@ export class FormComponent implements OnInit {
     ) { }
 
     getEvents(){
-        this.eventService
-            .getEvents(this.query)
-            .subscribe(
-                (res: any) => this.events = res.events,
-                (err: any) => {
-                    alert(err);
-                });
+        this.eventService.getEvents(this.query)
+            .subscribe(res => {this.events = this.eventService.events});
     }
 
     clearFields(): void {

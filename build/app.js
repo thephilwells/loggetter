@@ -4430,22 +4430,20 @@ webpackJsonp([1,2],{
 	    function FormComponent(eventService, router) {
 	        this.eventService = eventService;
 	        this.router = router;
+	        this.events = [];
 	    }
 	    FormComponent.prototype.getEvents = function () {
 	        var _this = this;
-	        this.eventService
-	            .getEvents(this.query)
-	            .subscribe(function (res) { return _this.events = res.events; }, function (err) {
-	            alert(err);
-	        });
+	        this.eventService.getEvents(this.query)
+	            .subscribe(function (res) { _this.events = _this.eventService.events; });
 	    };
 	    FormComponent.prototype.clearFields = function () {
 	        this.query = {
 	            apiKey: "22bf1a3c-1388-48c4-a813-2ad7822c9ec6",
 	            logKeys: ["9a0c468b-714b-453f-8455-6b4a5527874e"],
-	            queryString: "where(PWATMWEB003)",
-	            startTime: 1473814829000,
-	            endTime: 1473816029000,
+	            queryString: "where(PWATMWEB004)",
+	            startTime: 1474131000000,
+	            endTime: 1474132200000,
 	        };
 	    };
 	    FormComponent.prototype.ngOnInit = function () {
@@ -4502,10 +4500,9 @@ webpackJsonp([1,2],{
 	        var endEpoch = this.convertTime(query.endTime);
 	        var queryUrl = "https://rest.logentries.com/query/logs/" + query.logKeys[0] + "/?query=" + query.queryString + "&from=" + startEpoch + "&to=" + endEpoch;
 	        var options = new http_1.RequestOptions({ headers: this.headers });
-	        var totalResponse = this.http.get(queryUrl, options)
-	            .map(function (res) { return _this.handleResponse(res.json())
-	            .catch(function (error) { return Rx_1.Observable.throw(error.json().error || 'Server error'); }); });
-	        return totalResponse;
+	        return this.http.get(queryUrl, options)
+	            .flatMap(function (res) { return _this.handleResponse(res.json()); })
+	            .catch(function (error) { return Rx_1.Observable.throw(error.json().error || 'Server error'); });
 	    };
 	    EventService.prototype.getEventsFromContinueUrl = function (url) {
 	        var _this = this;
@@ -4515,23 +4512,19 @@ webpackJsonp([1,2],{
 	        });
 	        var queryUrl = url;
 	        var options = new http_1.RequestOptions({ headers: this.headers });
-	        var totalResponse = this.http.get(queryUrl, options)
-	            .map(function (res) {
-	            return {
-	                response: _this.handleResponse(res.json())
-	            };
-	        })
+	        return this.http.get(queryUrl, options)
+	            .flatMap(function (res) { return _this.handleResponse(res.json()); })
 	            .catch(function (error) { return Rx_1.Observable.throw(error.json().error || 'Server error'); });
-	        return totalResponse;
 	    };
-	    EventService.prototype.handleResponse = function (firstResponse) {
-	        var response = firstResponse;
+	    EventService.prototype.handleResponse = function (initialResponse) {
+	        var response = initialResponse;
 	        if (response.links) {
 	            this.continueRequest(response);
 	            return;
 	        }
 	        else if (response.events) {
-	            return response;
+	            this.events.push(response.events);
+	            return;
 	        }
 	        else {
 	            alert('API responded with ${response.status_code}');
@@ -4540,11 +4533,12 @@ webpackJsonp([1,2],{
 	        ;
 	    };
 	    EventService.prototype.continueRequest = function (response) {
-	        var _this = this;
+	        if (response.events) {
+	            this.events.push(response.events);
+	        }
 	        if (response.links) {
 	            var continueUrl = response.links[0].href;
-	            var newResponse = this.getEventsFromContinueUrl(continueUrl)
-	                .map(function (res) { return _this.handleResponse(res.json()); });
+	            return this.getEventsFromContinueUrl(continueUrl);
 	        }
 	    };
 	    EventService.prototype.convertTime = function (time) {

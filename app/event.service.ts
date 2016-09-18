@@ -11,10 +11,11 @@ import { Query } from './query';
 export class EventService {
     private headers: Headers;
     private apiKey: string;
+    public events: Event[] = [];
 
     constructor(private http: Http) { }
 
-    getEvents(query: Query): Observable<Object> {
+    getEvents(query: Query): Observable<Event[]> {
         this.apiKey = query.apiKey;
 
         this.headers = new Headers({
@@ -26,13 +27,12 @@ export class EventService {
         let queryUrl = `https://rest.logentries.com/query/logs/${query.logKeys[0]}/?query=${query.queryString}&from=${startEpoch}&to=${endEpoch}`;
 
         let options = new RequestOptions({ headers: this.headers });
-        let totalResponse = this.http.get(queryUrl, options)
-            .map((res: Response) => this.handleResponse(res.json())
-                .catch((error: any) => Observable.throw(error.json().error || 'Server error')));
-        return totalResponse;
+        return this.http.get(queryUrl, options)
+            .flatMap((res: Response) => this.handleResponse(res.json()))
+            .catch((error: any) => Observable.throw(error.json().error || 'Server error'));
     }
 
-    private getEventsFromContinueUrl(url: string): Observable<Object> {
+    private getEventsFromContinueUrl(url: string): Observable<Event[]> {
         this.headers = new Headers({
             'Content-Type': 'application/json',
             'x-api-key': this.apiKey
@@ -40,34 +40,32 @@ export class EventService {
         let queryUrl = url;
 
         let options = new RequestOptions({ headers: this.headers });
-        let totalResponse = this.http.get(queryUrl, options)
-                .map((res: Response) => { 
-                    return {
-                        response: this.handleResponse(res.json())
-                        };
-                })
+        return this.http.get(queryUrl, options)
+                .flatMap((res: Response) => this.handleResponse(res.json()))
                 .catch((error: any) => Observable.throw(error.json().error || 'Server error'));
-        return totalResponse;
     }
 
-    private handleResponse(firstResponse: any): any {
-        let response = firstResponse;
+    private handleResponse(initialResponse: any): Observable<Event[]> {
+        let response = initialResponse;
         if (response.links) {
             this.continueRequest(response);
             return;
         } else if (response.events) {
-            return response;
+            this.events.push(response.events);
+            return;
         } else {
             alert('API responded with ${response.status_code}');
             return;
         };
     }
 
-    private continueRequest(response: any) {
+    private continueRequest(response: any): Observable<Event[]> {
+        if (response.events) {
+            this.events.push(response.events);
+        }
         if (response.links) {
             let continueUrl = response.links[0].href;
-            let newResponse = this.getEventsFromContinueUrl(continueUrl)
-                .map((res: Response) => this.handleResponse(res.json()));
+            return this.getEventsFromContinueUrl(continueUrl);
         }
     }
 
